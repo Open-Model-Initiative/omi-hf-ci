@@ -1,0 +1,47 @@
+name: HF Hardware Agnostic CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  matrix:
+    name: Build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.mk.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - id: mk
+        run: |
+          matrix=$(python scripts/generate_ci_matrix.py)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: "${{ matrix.backend }} • ${{ matrix.suite }}"
+    needs: [matrix]
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: |
+          pip install -U pip
+          pip install "transformers[torch]" "diffusers[torch]" pytest
+
+      - name: Run suite
+        env:
+          HF_CI_BACKEND: ${{ matrix.backend }}
+          HF_CI_DEVICE: ${{ matrix.torch_device }}
+          HF_CI_EXTRAS: ${{ join(matrix.extras, ',') }}
+        run: ${{ matrix.command }}

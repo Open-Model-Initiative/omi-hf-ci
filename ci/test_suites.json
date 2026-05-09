@@ -1,0 +1,19 @@
+{
+  "suites": {
+    "transformers_smoke": {
+      "package": "transformers",
+      "command": "pytest -q tests/transformers -k 'smoke and not slow' --maxfail=1",
+      "requires_any": ["fp16", "bf16"]
+    },
+    "diffusers_smoke": {
+      "package": "diffusers",
+      "command": "pytest -q tests/diffusers -k 'smoke and not slow' --maxfail=1",
+      "requires_any": ["fp16", "bf16"]
+    },
+    "distributed_sanity": {
+      "package": "common",
+      "command": "pytest -q tests/distributed -k 'sanity and not slow' --maxfail=1",
+      "requires_all": []
+    }
+  }
+}
