@@ -1,0 +1,25 @@
+{
+  "suites": {
+    "transformers_smoke": {
+      "package": "transformers",
+      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
+      "requires_any": [
+        "fp16",
+        "bf16"
+      ]
+    },
+    "diffusers_smoke": {
+      "package": "diffusers",
+      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
+      "requires_any": [
+        "fp16",
+        "bf16"
+      ]
+    },
+    "distributed_sanity": {
+      "package": "common",
+      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
+      "requires_all": []
+    }
+  }
+}
