@@ -70,7 +70,7 @@ jobs:
     name: "${{ matrix.backend }} / ${{ matrix.suite }}"
     needs: [matrix]
     if: needs.matrix.outputs.count != '0'
-    runs-on: ${{ toJson(matrix.runs_on) }}
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false

@@ -42,7 +42,7 @@ jobs:
   test:
     name: "${{ matrix.backend }} / ${{ matrix.suite }}"
     needs: [matrix]
-    runs-on: ${{ toJson(matrix.runs_on) }}
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
