@@ -4,28 +4,59 @@
       "type": "gpu",
       "labels": ["self-hosted", "linux", "x64", "nvidia"],
       "torch_device": "cuda",
-      "setup": {"python": "3.11", "extras": ["cuda"]},
-      "capabilities": ["fp16", "bf16", "flash_attention_2", "bitsandbytes"]
+      "setup": {
+        "python": "3.11",
+        "extras": ["cuda"],
+        "install_cmd": "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
+      },
+      "env": {
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "CUDA_VISIBLE_DEVICES": "0"
+      },
+      "capabilities": ["fp16", "bf16", "flash_attention_2", "bitsandbytes", "torch_compile"]
     },
     "amd": {
       "type": "gpu",
       "labels": ["self-hosted", "linux", "x64", "amd"],
       "torch_device": "cuda",
-      "setup": {"python": "3.11", "extras": ["rocm"]},
+      "setup": {
+        "python": "3.11",
+        "extras": ["rocm"],
+        "install_cmd": "pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.0"
+      },
+      "env": {
+        "HIP_VISIBLE_DEVICES": "0",
+        "PYTORCH_HIP_ALLOC_CONF": "expandable_segments:True"
+      },
       "capabilities": ["fp16", "bf16"]
     },
     "gaudi": {
       "type": "accelerator",
       "labels": ["self-hosted", "linux", "x64", "gaudi"],
       "torch_device": "hpu",
-      "setup": {"python": "3.11", "extras": ["gaudi"]},
+      "setup": {
+        "python": "3.11",
+        "extras": ["gaudi"],
+        "install_cmd": "pip install optimum-habana"
+      },
+      "env": {
+        "PT_HPU_LAZY_MODE": "0",
+        "HABANA_VISIBLE_DEVICES": "all"
+      },
       "capabilities": ["bf16", "hpu_graph"]
     },
     "ascend": {
       "type": "accelerator",
       "labels": ["self-hosted", "linux", "x64", "ascend"],
       "torch_device": "npu",
-      "setup": {"python": "3.10", "extras": ["ascend"]},
+      "setup": {
+        "python": "3.10",
+        "extras": ["ascend"],
+        "install_cmd": "pip install torch_npu"
+      },
+      "env": {
+        "ASCEND_VISIBLE_DEVICES": "0"
+      },
       "capabilities": ["fp16", "bf16"]
     }
   }

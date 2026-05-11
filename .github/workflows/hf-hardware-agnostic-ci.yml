@@ -2,28 +2,76 @@ name: HF Hardware Agnostic CI
 
 on:
   pull_request:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      suite_filter:
+        description: "Comma-separated suite names (empty = all)"
+        required: false
+        default: ""
+      backend_filter:
+        description: "Comma-separated backend names (empty = all)"
+        required: false
+        default: ""
+
+concurrency:
+  group: "hf-ci-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
+  # ──────────────────────────────────────────────
+  # Stage 1: Validate configs and build matrix
+  # ──────────────────────────────────────────────
   matrix:
     name: Build matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.mk.outputs.matrix }}
+      count: ${{ steps.mk.outputs.count }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - id: mk
-        run: |
-          matrix=$(python scripts/generate_ci_matrix.py)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
+      - name: Install validation deps
+        run: pip install jsonschema
+
+      - name: Validate backend config
+        run: python scripts/validate_config.py --config backends
+
+      - name: Validate suite config
+        run: python scripts/validate_config.py --config suites
+
+      - name: Generate matrix
+        id: mk
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.suite_filter }}" ]; then
+            ARGS="$ARGS --suite-filter ${{ github.event.inputs.suite_filter }}"
+          fi
+          if [ -n "${{ github.event.inputs.backend_filter }}" ]; then
+            ARGS="$ARGS --backend-filter ${{ github.event.inputs.backend_filter }}"
+          fi
+          matrix=$(python scripts/generate_ci_matrix.py $ARGS)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          count=$(echo "$matrix" | python -c "import sys,json; print(len(json.load(sys.stdin)['include']))")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "### Matrix: $count combinations" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$matrix" | python -m json.tool >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # ──────────────────────────────────────────────
+  # Stage 2: Run test suites on matching hardware
+  # ──────────────────────────────────────────────
   test:
-    name: "${{ matrix.backend }} • ${{ matrix.suite }}"
+    name: "${{ matrix.backend }} / ${{ matrix.suite }}"
     needs: [matrix]
+    if: needs.matrix.outputs.count != '0'
     runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
@@ -34,10 +82,14 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Install dependencies
+      - name: Install PyTorch (vendor-specific)
+        if: matrix.install_cmd != ''
+        run: ${{ matrix.install_cmd }}
+
+      - name: Install HF libraries
         run: |
           pip install -U pip
-          pip install "transformers[torch]" "diffusers[torch]" pytest
+          pip install "transformers[torch]" "diffusers[torch]" pytest pytest-timeout
 
       - name: Run suite
         env:
@@ -45,3 +97,36 @@ jobs:
           HF_CI_DEVICE: ${{ matrix.torch_device }}
           HF_CI_EXTRAS: ${{ join(matrix.extras, ',') }}
         run: ${{ matrix.command }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "results-${{ matrix.backend }}-${{ matrix.suite }}"
+          path: |
+            test-results/
+            **/*.xml
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # ──────────────────────────────────────────────
+  # Stage 3: Summary report
+  # ──────────────────────────────────────────────
+  summary:
+    name: CI Summary
+    needs: [matrix, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report results
+        run: |
+          echo "## Hardware-Agnostic CI Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Matrix size:** ${{ needs.matrix.outputs.count }} combinations" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Test job status:** ${{ needs.test.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "See individual job logs for details." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if tests failed
+        if: needs.test.result == 'failure'
+        run: exit 1

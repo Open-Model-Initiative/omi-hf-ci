@@ -1,0 +1,96 @@
+name: HF Nightly Full CI
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # 3 AM UTC daily
+  workflow_dispatch:
+
+concurrency:
+  group: "hf-ci-nightly"
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    name: Build full matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.mk.outputs.matrix }}
+      count: ${{ steps.mk.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validation deps
+        run: pip install jsonschema
+
+      - name: Validate configs
+        run: |
+          python scripts/validate_config.py --config backends
+          python scripts/validate_config.py --config suites
+
+      - name: Generate full matrix
+        id: mk
+        run: |
+          matrix=$(python scripts/generate_ci_matrix.py)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          count=$(echo "$matrix" | python -c "import sys,json; print(len(json.load(sys.stdin)['include']))")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: "${{ matrix.backend }} / ${{ matrix.suite }}"
+    needs: [matrix]
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install PyTorch (vendor-specific)
+        if: matrix.install_cmd != ''
+        run: ${{ matrix.install_cmd }}
+
+      - name: Install HF libraries
+        run: |
+          pip install -U pip
+          pip install "transformers[torch]" "diffusers[torch]" pytest pytest-timeout
+
+      - name: Run suite
+        env:
+          HF_CI_BACKEND: ${{ matrix.backend }}
+          HF_CI_DEVICE: ${{ matrix.torch_device }}
+          HF_CI_EXTRAS: ${{ join(matrix.extras, ',') }}
+        run: ${{ matrix.command }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "nightly-${{ matrix.backend }}-${{ matrix.suite }}"
+          path: |
+            test-results/
+            **/*.xml
+          retention-days: 30
+          if-no-files-found: ignore
+
+  summary:
+    name: Nightly Summary
+    needs: [matrix, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Nightly CI Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Matrix size:** ${{ needs.matrix.outputs.count }} combinations" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Overall status:** ${{ needs.test.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Date:** $(date -u)" >> "$GITHUB_STEP_SUMMARY"

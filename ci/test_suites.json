@@ -2,24 +2,46 @@
   "suites": {
     "transformers_smoke": {
       "package": "transformers",
-      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
-      "requires_any": [
-        "fp16",
-        "bf16"
-      ]
+      "command": "python -m pytest tests/test_modeling_common.py -x -q --timeout=300",
+      "requires_any": ["fp16", "bf16"],
+      "timeout_minutes": 30,
+      "tags": ["smoke", "core"]
+    },
+    "transformers_training": {
+      "package": "transformers",
+      "command": "python -m pytest tests/trainer/ -x -q --timeout=600 -k 'not slow'",
+      "requires_any": ["bf16"],
+      "timeout_minutes": 60,
+      "tags": ["training"]
     },
     "diffusers_smoke": {
       "package": "diffusers",
-      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
-      "requires_any": [
-        "fp16",
-        "bf16"
-      ]
+      "command": "python -m pytest tests/test_models_unet_2d.py -x -q --timeout=300",
+      "requires_any": ["fp16", "bf16"],
+      "timeout_minutes": 30,
+      "tags": ["smoke", "core"]
+    },
+    "diffusers_pipelines": {
+      "package": "diffusers",
+      "command": "python -m pytest tests/test_pipelines_common.py -x -q --timeout=600 -k 'not slow'",
+      "requires_any": ["bf16"],
+      "timeout_minutes": 60,
+      "tags": ["pipelines"]
     },
     "distributed_sanity": {
       "package": "common",
-      "command": "pytest -q tests/test_generate_ci_matrix.py --maxfail=1",
-      "requires_all": []
+      "command": "python -m pytest tests/distributed/ -x -q --timeout=300",
+      "requires_all": [],
+      "multi_gpu": true,
+      "timeout_minutes": 20,
+      "tags": ["distributed"]
+    },
+    "quantization_bitsandbytes": {
+      "package": "transformers",
+      "command": "python -m pytest tests/quantization/ -x -q --timeout=300 -k bnb",
+      "requires_any": ["bitsandbytes"],
+      "timeout_minutes": 30,
+      "tags": ["quantization"]
     }
   }
 }

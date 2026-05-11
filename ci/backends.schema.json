@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["backends"],
+  "properties": {
+    "backends": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "labels", "torch_device", "capabilities"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["gpu", "accelerator", "cpu"]
+          },
+          "labels": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1
+          },
+          "torch_device": {
+            "type": "string"
+          },
+          "setup": {
+            "type": "object",
+            "properties": {
+              "python": {"type": "string"},
+              "extras": {"type": "array", "items": {"type": "string"}},
+              "install_cmd": {"type": "string"}
+            },
+            "additionalProperties": false
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {"type": "string"}
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
