@@ -150,16 +150,36 @@ omi-hf-ci/
 │   └── suites.schema.json     # JSON schema for suites
 ├── scripts/
 │   ├── generate_ci_matrix.py  # Matrix generator
-│   └── validate_config.py     # Config validator
+│   ├── validate_config.py     # Config validator
+│   ├── pilot_test.py          # GPU pilot test script
+│   └── vastai_test.py         # Vast.ai instance launcher
 ├── tests/
 │   ├── test_generate_ci_matrix.py
 │   └── test_validate_config.py
 ├── docs/
 │   ├── architecture.md        # Detailed architecture
-│   └── contributing-backend.md # Vendor onboarding guide
+│   ├── contributing-backend.md # Vendor onboarding guide
+│   └── pilot-testing.md       # GPU pilot test guide
 └── .github/workflows/
-    └── hf-hardware-agnostic-ci.yml
+    ├── hf-hardware-agnostic-ci.yml
+    └── hf-nightly-ci.yml
 ```
+
+## Pilot Testing on Real GPUs
+
+Test the CI system on actual GPU hardware before deploying:
+
+```bash
+# Quick test on any GPU instance
+python scripts/pilot_test.py --backend auto
+
+# Or use Vast.ai (cheapest, ~$0.10-0.50/hr)
+export VAST_API_KEY="your-key"
+python scripts/vastai_test.py --backend nvidia
+python scripts/vastai_test.py --backend amd
+```
+
+See [docs/pilot-testing.md](docs/pilot-testing.md) for all options (Vast.ai, RunPod, Lambda Labs, Google Colab, self-hosted runners).
 
 ## For Hardware Vendors
 
